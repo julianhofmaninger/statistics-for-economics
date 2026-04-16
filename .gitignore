@@ -1,0 +1,11 @@
+# Ignore side-products of knitting output
+*.aux
+*.bcf
+*.knit.md
+*.log
+*.run.xml
+*.toc
+*.tex
+
+# Ignore latex figures
+**/figure-latex/*

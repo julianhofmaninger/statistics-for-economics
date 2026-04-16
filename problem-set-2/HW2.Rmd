@@ -1,0 +1,174 @@
+---
+title: "Homework 2 - Group 4"
+author: "Paula Gillessen, Julian Hofmaninger and Julian Sandalek"
+date: "2025-11-21"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    citation_package: biblatex
+    keep_tex: true
+  html_document: default
+  word_document: default
+---
+\tableofcontents
+\newpage
+
+## Exercise 3: Layoff
+### Load data and recode variables
+```{r}
+layoff <- read.csv("./layoff.csv", sep = ";", header = TRUE)[,-1]
+layoff$status <- as.factor(layoff$status)
+levels(layoff$status) <- c("new job","unemployed")
+layoff$length <- as.factor(layoff$length)
+levels(layoff$length) <- c("<1M", "1-3M", "3-12M", "1-2Y", "2-5Y", ">5Y")
+```
+
+### Data overview
+```{r}
+summary(layoff)
+```
+```{r}
+str(layoff)
+```
+```{r}
+table(layoff$length, layoff$status)
+```
+
+### Data description
+```{r}
+employmenttab <- table(layoff$length, layoff$status)
+```
+```{r}
+prop.table(employmenttab, 1)
+```
+```{r out.width='50%',fig.align = "center"}
+barplot(t(employmenttab),
+        beside = TRUE, legend = TRUE, xlab = "Length of Employment",
+        ylab = "Count", main = "Employment Status by Length of Employment")
+```
+
+```{r fig.width=16, fig.height=10, out.width='60%', fig.align = "center"}
+par(xpd = TRUE, mar = c(5, 14, 4, 15))
+barplot(t(prop.table(employmenttab, 1)),
+        cex.main = 2.5, cex.lab = 2, cex.axis = 2, cex.names = 2,
+        col=gray.colors(ncol(employmenttab)),
+        xlab = "Length of Employment", ylab = "Proportion",
+        main = "Proportion of Employment Status by Length of Employment")
+legend("topright", inset = c(-0.25, 0), legend = colnames(employmenttab),
+       fill = gray.colors(ncol(employmenttab)), cex = 2)
+```
+The last bar chart allows illustrates quite well the main characteristics of the distribution of people finding a new job and people that are still unemployed on January 1, 1975 given the duration of their prior employment. These main characteristics are that across all categories regarding their prior employment length the share of people that found a new jobs accounted for more than 50%. Furthermore, the category `3-12M` is the only one that really stands out when it comes to the distribution between `unemployed` and `new job` for all other categories of `length of employment` the distribution between these two remained relatively constant.
+
+
+### Interpretation of differences in distribution
+From the plots above we have seen that the share of `new job` (~50%) and `unemployed` (~40%) remained relatively stable across all categories of `Length of Employment` therefore we would suggest that there are not statistically significant differences in the distribution.
+
+We can establish the following hypotheses and run a \verb|Chi-squared homogeneity test|:
+\[ H_0: The distribution of employment status is the same for all groups of length of employment.  \]
+\[ H_A: There is a difference in the distribution of employment status across all groups of length of employment.  \]
+
+```{r}
+chisq.test(employmenttab, correct=FALSE)
+```
+The \verb|Chi-squared homogeneity test| results in a \(p\text{-}value = 0.2718)\ which leads us to the conclusion that there is no statistically significant difference in the distribution of the `employment status` across groups of `length of employment`.
+
+### Statistical test
+We establish the following hypotheses and run a \verb|Chi-squared test|:
+\[ H_0: P(status∣length)=P(status) \text{ for all length groups}.  \]
+\[ H_A: P(status∣length) \neq P(status) \text{ for at least one length group}.  \]
+```{r}
+chisq.test(employmenttab, correct=FALSE)
+```
+The \verb|Chi-squared test| returns \(p\text{-}value = 0.2718\) we therefore retain the null hypothesis as this suggest that there is no evidence of dependence between employment status and length of employment on any statistically significant level.
+
+
+## Exercise 4: Living conditions
+### Load data and recode variables
+```{r}
+vienna <- read.table("./vienna.txt", header = TRUE)
+vienna$housing <- as.factor(vienna$housing)
+levels(vienna$housing) <- c("tower building", "apartment", "patio house", "row house")
+
+vienna$contact <- as.factor(vienna$contact)
+levels(vienna$contact) <- c("little contact", "frequent contact")
+
+vienna$satisfaction <- as.factor(vienna$satisfaction)
+levels(vienna$satisfaction) <- c("low", "medium", "high")
+```
+
+### Data overview
+```{r}
+summary(vienna[,-2])
+```
+```{r}
+table(vienna$housing)
+```
+```{r}
+table(vienna$contact)
+```
+```{r}
+table(vienna$satisfaction)
+```
+
+### Data manipulation
+
+```{r}
+levels(vienna$satisfaction) <- c("low-medium", "low-medium", "high")
+```
+
+### Data visualisation
+
+```{r out.width='50%',fig.align = "center"}
+satisfaction_table <- table(vienna$contact, vienna$satisfaction)
+mosaicplot(satisfaction_table, main = "Relationship between contact and satisfaction")
+```
+
+### Statistical Tests
+We will now perform the \verb|Chi-squared test| and the \verb|Odds-ratio test| to check if there is a statistically signficant dependence between `contact` and `satisfaction`.
+
+```{r}
+chisq.test(satisfaction_table, correct = FALSE)
+```
+The \verb|Chi-squared| test returns \(p\text{-}value = 0.2973  \) therefore we retain the null hypothesis and suggest that the frequency of contact with neighbors does not influence the satisfaction on any statistically significant level.
+
+
+```{r}
+odds_little <- satisfaction_table["little contact", "low-medium"] / 
+  satisfaction_table["little contact", "high"]
+
+odds_frequent <- satisfaction_table["frequent contact", "low-medium"] / 
+  satisfaction_table["frequent contact", "high"]
+OR <- odds_little / odds_frequent
+OR
+
+fisher.test(satisfaction_table)
+```
+The \verb|Odds-ratio test| returns \(Odds Ratio = 1.11\), by looking at the table structure we can see that this ratio suggests a slightly positive relationship between more frequent contact and a higher satisfaction. From \( p\text{-}value = 0.313 \) we conclude that this positive relationship can not be observed on any statistically significant level. 
+Concluding, the results of the \verb|Chi-squared test| and the \verb|Odds-ratio test| align and suggest that the relationship between `satisfaction` and `contact` can not be concluded on a statistically significant level.
+
+### Statistical Tests Part 2
+
+```{r out.width='50%',fig.align = "center"}
+vienna_apt <- subset(vienna, housing == "apartment")
+satisfaction_table_apt <- table(vienna_apt$contact, vienna_apt$satisfaction)
+mosaicplot(satisfaction_table_apt, main = "Relationship of satisfaction and 
+           contact for apartment dwellers")
+```
+```{r}
+chisq.test(satisfaction_table_apt, correct = FALSE)
+```
+```{r}
+odds_little <- satisfaction_table_apt["little contact", "low-medium"] / 
+  satisfaction_table_apt["little contact", "high"]
+
+odds_frequent <- satisfaction_table_apt["frequent contact", "low-medium"] /
+  satisfaction_table_apt["frequent contact", "high"]
+OR <- odds_little / odds_frequent
+OR
+
+fisher.test(satisfaction_table_apt)
+```
+
+### Test result comparison
+When we perform the statistical tests on the dataset that only contains people living in apartments we can see that the \verb|Chi-squared test| now returns \(p\text{-}value = 0.0337\) which means that the influence of `contact` on `satisfaction` is statistically significant on a level of \( \alpha = 5%  \) for apartment owners. The \verb|Odds-ratio test| returns \(Odds Ratio = 1.379  \) with \(p\text{-}value = 0.03571 \). Compared to the results of the tests on the whole dataset we can therefore conclude that taking only apartment owners a positive relationship between `satisfaction` and `contact` is observable on a statistically significant level of \(5%)\
+
