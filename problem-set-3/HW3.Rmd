@@ -1,0 +1,228 @@
+---
+title: "Homework 3 - Group 4"
+author: "Paula Gillessen, Julian Hofmaninger and Julian Sandalek"
+subtitle: "Course: 0214"
+date: "2025-12-05"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    keep_tex: true
+  html_document: default
+  word_document: default
+---
+*Please Note:* For the sake of including all relevant plots and descriptions to the questions asked in Exercise 5 we exceeded the page limit by around 2/3 of a page.
+\tableofcontents
+\newpage
+
+# Exercise 5: Data Exploration 
+## Numerical description of `excess`
+```{r}
+load("Excess.RData")
+summary(Data$excess)
+```
+The typical number of excess deaths per million people in a US state in 2020 is around $1460.2$ or $1429.4$ (Median and Mean).
+With a range from $191.2$ to $2331.6$.
+```{r}
+med <- median(Data$excess, na.rm = TRUE)
+closest <- head(Data[order(abs(Data$excess - med)), c("state", "excess")], 5)
+farthest <- head(
+  Data[order(abs(Data$excess - med), decreasing = TRUE), c("state", "excess")],5)
+summary_tbl <- data.frame(rank = 1:5, closest_state  = closest$state,
+  closest_value  = round(closest$excess, 2), farthest_state = farthest$state,
+  farthest_value = round(farthest$excess, 2))
+knitr::kable(summary_tbl,
+             caption = "States Closest and Farthest from the Median Excess Deaths",
+             col.names = c("Rank", "Closest State",  "Excess",
+                           "Farthest State", "Excess"))
+```
+The state Florida represents the median value while the states Wyoming, Kentucky, Maryland and Rhode Island are the closest to the median in absolute terms.
+From all states, Hawaii, North Carolina, Maine, New Jersey and Washington are the five states that are the furthest from the mean in absolute terms. However, while New Jersey is the most extreme case negatively speaking the other four states are the most extreme in terms of the least excess deaths.
+
+## Graphical description of all numerical variables
+```{r out.width='60%', fig.align = "center"}
+par(mfrow = c(2,3), mar = c(2, 2, 1, 1), oma = c(2, 1, 1, 1))
+numvars <- c("stringency", "excess", "GDPpc", "dem_share", "pop_dens")
+for (v in numvars) {
+  hist(Data[[v]], main = paste("Histrogram of", v), xlab = v)
+}
+```
+
+
+```{r out.width='60%', fig.align = "center"}
+par(mfrow = c(2,3), mar = c(2, 2, 1, 1), oma = c(2, 1, 1, 1))
+for (v in numvars) {boxplot(Data[[v]], main = paste("Boxplot of", v), ylab = v)}
+outlier_list <- lapply(numvars, function(v) {
+  outvals <- boxplot.stats(Data[[v]])$out
+  if (length(outvals) > 0) {
+    data.frame(variable=v,state=Data$state[Data[[v]] %in% outvals],
+               value= Data[[v]][Data[[v]] %in% outvals])
+  }
+})
+outlier_table <- do.call(rbind, outlier_list)
+knitr::kable(outlier_table, caption = "Detected Outliers by Variable") 
+```
+Potential Outliers are New York for `stringency`, Hawaii for `excess`, District of Columbia for `GDPpc` as well as for `dem_share` and Connecticut, Delaware, District of Columbia, Maryland, Massachusetts, New Jersey and Rhode Island for the variable `pop_dens`.
+
+
+## Pearson correlation
+```{r}
+cor <- cor(Data[, numvars], use = "pairwise.complete.obs")
+max_abs_cor <- max(abs(cor[lower.tri(cor)]))
+idx <- which(cor == max_abs_cor, arr.ind = TRUE)
+paste("Max. correlation of", round(max_abs_cor,4), "found for variables:", 
+      rownames(cor)[idx[1, "row"]], "and", colnames(cor)[idx[1, "col"]])
+```
+From that we get that the highest absolute correlation appears between `pop_dens` and `GDPpc` with a value of $0.9479$.
+
+## Data to be ignored
+The data point (state) District of Columbia should probably be ignored for the rest of the analysis. The results of Exercise 5b) shows, that this state is a potential outlier for three of the five numerical variables, namely `GDPpc`, `dem_share` and `pop_dens`. Since this observation strongly distorts several variables simultaneously, it should be removed to avoid influencing further analyses.
+
+```{r}
+new_data <- subset(Data, state != "District of Columbia")
+```
+
+## Revisiting Pearson correlation
+```{r}
+cor(new_data[, numvars], use = "pairwise.complete.obs")
+```
+
+```{r out.width='60%', fig.align = "center"}
+par(mfrow = c(2,3), mar = c(2, 2, 1, 1), oma = c(2, 1, 1, 1))
+for (v in numvars) {
+  hist(new_data[[v]], main = paste("Histrogram of", v), xlab = v)
+}
+```
+After removing the District of Columbia, the distributions of `GDPpc`, `dem_share`, and `pop_dens` become much less extreme, since their strongest outlier is gone. The variables `stringency` and `excess` remain almost unchanged.
+Because `pop_dens` (and to a lesser extent `GDPpc`) remain strongly right-skewed even after removing the outlier, a log-transformation would make their distributions more symmetric and suitable for correlation and regression. So yes we would suggest the variable transformation of `pop_dens`.
+
+# Exercise 6: Statistical data exploration
+## Test `excess` mean
+To test if there were excess deaths in 2020 we formulate the following hypotheses:
+
+\[ H_0: \mu_{excess} = 0  \]
+\[ H_A: \mu_{excess} > 0  \]
+
+```{r}
+t.test(new_data$excess, mu = 0, alternative = "greater")
+```
+Since the p-value is extremely small, we reject the null hypothesis and conclude that the average excess deaths were significantly greater than zero. 
+
+## Pearson confidence interval
+\[ H_0: \rho = 0  \]
+\[ H_A: \rho > 0  \]
+```{r}
+cor_res <- cor.test(new_data$excess, new_data$stringency)
+cor_res
+```
+The $95$% confidence interval $[-0.47, 0.07]$ includes zero, and the p-value ($0.13$) is greater than $0.05$. Therefore, based on the point estimate of $-0.13$ and the interval, we conclude that there is no statistically significant linear relationship between stringency and excess deaths.
+
+## Linear regression model
+```{r}
+lm_model <- lm(excess ~ stringency, data = new_data)
+summary(lm_model)
+```
+**Interpretation:**
+
+* The coefficient for `stringency` is $-18.19$. This suggests that for every one-unit increase in the stringency index, excess deaths decrease by about 16.8 per million inhabitants.
+* However, the p-value associated with this coefficient is $0.13$. Since this is greater than the significance level of $0.05$, the effect is not statistically significant.
+
+**Verification:**
+The p-value of the $\beta_1$ ($0.13$) is identical to the p-value from the Pearson correlation test in the step before. This confirms that both analyses lead to the same conclusion: there is no statistically significant linear association between stringency and excess deaths.
+
+## Quality of fit
+```{r out.width='50%',fig.align = "center"}
+plot(new_data$stringency, new_data$excess,
+     main = "Scatterplot: Excess Deaths vs. Stringency",
+     xlab = "Stringency Index", ylab = "Excess Deaths", pch = 19,       
+     col = "darkgrey")
+abline(lm_model, col = "red", lwd = 2)
+```
+Quality of the fit:
+
+1.  Large Scatter: The data points form a diffuse cloud rather than a clear pattern along the line. There is a large vertical spread (residuals) around the regression line.
+
+2.  Weak Trend: The red line shows a slight downward slope, but it does not capture the variability of the data well. Many states with low stringency have high excess deaths, and vice versa.
+
+3.  Low R-squared: This visual observation aligns with the low Multiple R-squared value (~$0.05$) from the model summary. The model explains only about $5$% of the variance, meaning `stringency` alone is a very poor predictor of `excess` deaths.
+
+## Revisited scatterplot
+```{r out.width='50%',fig.align = "center"}
+colfunc <- colorRampPalette(c("red", "magenta", "blue"))
+mycolors <- colfunc(50)[as.numeric(cut(new_data$dem_share, breaks = 50))]
+plot(new_data$stringency, new_data$excess,
+     col = mycolors, pch = 19, cex = 1.5,     
+     xlab = "Stringency Index", ylab = "Excess Deaths",
+     main = "Excess vs. Stringency (Colored by Vote Share)")
+legend("topright", 
+       legend = c("High Dem Share (Blue)", "Low Dem Share (Red)"),
+       col = c("blue", "red"), pch = 19, bty = "n")
+```
+
+The scatterplot reveals a pattern regarding political alignment:
+
+* Red points (states with a lower share of Democratic voters) are clustered on the left side, indicating generally lower stringency measures.
+    
+* Blue/Purple points (states with a higher share of Democratic voters) are found more towards the right side, indicating higher stringency measures.
+
+# Exercise 7: Multiple covariates
+## Sub-model
+```{r}
+Data_sub <- subset(new_data, dem_share >= 0.4)
+lm_sub <- lm(excess ~ stringency, data = Data_sub)
+summary(lm_sub)
+```
+
+The coefficient for `stringency` has changed from $-18.19$ to $-29.41$. This suggests a stronger negative relationship. However, even though the p-value has dropped from $0.13$ to $0.056$, this is still strictly above the standard significance level of $0.05$. The Multiple R-squared has increased from $0.05$ to $0.1$. Indicating that more of the variability is explained.
+
+## Full regression model
+```{r}
+lm_full <- lm(excess ~ stringency + GDPpc + dem_share + pop_dens, data = new_data)
+summary(lm_full)
+```
+**Intrepretation:**
+
+**`stringency`:**
+With a high p-value of $0.47$, this variable is not statistically significant. Which implies that the specific stringency index has no detectable impact on excess deaths in this model.
+
+**`GDPpc`:**
+The p-value is $0.03$, making this variable statistically significant. The coefficient is $-0.0165$, indicating a negative relationship: wealthier states tended to have significantly fewer excess deaths. Specifically, for every \$1,000 increase in GDP per capita, excess deaths decrease by about $16.5$ per million.
+
+**`dem_share`:**
+The p-value is $0.011$, which is smaller than $0.05$, so this variable is  statistically significant. The coefficient is $-1942$, suggesting a trend where states with a higher share of Democratic voters had fewer excess deaths.
+
+**`pop_dens`:**
+With a p-value of $0.0004$, this variable is highly statistically significant. The positive coefficient of $0.99$ indicates that higher population density is strongly associated with higher mortality. For every additional person per square mile, excess deaths increase by about 0.46 per million inhabitants.
+
+**Model Fit:** The Multiple R-squared is $0.36$, which is a huge improvement over the simple model ($0.04$). We now explain about $36$% of the variance in excess deaths.
+
+## F-Test for variable selection
+\[ H_0: \beta_{stringency} = 0  \]
+\[ H_A: \beta_{stringency} \neq 0  \]
+```{r}
+lm_reduced <- lm(excess ~ GDPpc + dem_share + pop_dens, data = new_data)
+anova(lm_reduced, lm_full)
+```
+The partial F-test p-value is $0.47$. Since this is far above $0.05$, `stringency` does not improve the model fit and is removed. 
+\[ H_0: \beta_{dem_share} = 0  \]
+\[ H_A: \beta_{dem_share} \neq 0  \]
+```{r}
+lm_reduced2 <- lm(excess ~ GDPpc + pop_dens, data = new_data)
+anova(lm_reduced2, lm_reduced)
+paste("Adjusted R-squared reduced model 1:", round(summary(lm_reduced)$adj.r.squared, 3))
+paste("Adjusted R-squared reduced model 2:", round(summary(lm_reduced2)$adj.r.squared, 3))
+```
+Furthermore, we check if we can disregard the regressor `dem_share`. We can see that on a significance level of $0.001$ we can reject the null hypothesis. And since the Adjusted R-squared is larger for the more complex model we keep `dem_share` in our model.
+
+## Model comparision
+\[ H_0: \beta_{GDPpc} + \beta_{dem\_share} + \beta_{pop\_dens} = 0  \]
+\[ H_A: \beta_{GDPpc} + \beta_{dem\_share} + \beta_{pop\_dens} \neq 0  \]
+```{r}
+lm_null <- lm(excess ~ 1, data = new_data)
+anova(lm_null, lm_reduced)
+```
+As mentioned before there is no significant effect of stringency on excess deaths, which is why we removed the variable from our model. 
+The ANOVA compares our final reduced model against the intercept-only model. The resulting p-value is $0.00013$. Since $p < 0.001$, we reject the null hypothesis. This confirms that our final model (containing `GDPpc`, `dem_share`, and `pop_dens`) explains a statistically significant amount of the variance in excess deaths and is far superior to just using the average. 
+
+## Strength of Evidence and Limitations
+
+The evidence from this analysis is only weak to moderate. A key indicator for this is the Adjusted R-squared value of approximately $0.32$ in our final model, which implies that we are able to explain only about $26$% of the variance in excess deaths. Consequently, $68$% of the variation remains unexplained, suggesting that crucial drivers of mortality are missing from the analysis. One major limitation is the omission of important variables such as the age structure of the population and healthcare capacity. Additionally, there is a strong potential for reverse causality in this context, as governments often implemented stricter measures specifically because death rates were already rising.
