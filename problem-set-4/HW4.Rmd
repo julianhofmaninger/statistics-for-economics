@@ -1,0 +1,212 @@
+---
+title: "Homework 4 - Group 4"
+author: "Paula Gillessen, Julian Hofmaninger and Julian Sandalek"
+subtitle: "Course: 0214"
+date: "2025-12-20"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    keep_tex: true
+  html_document: default
+  word_document: default
+---
+*Please Note:* For the sake of including all relevant plots and descriptions to the questions asked in Exercise 9 and Exercise 11 we slightly exceeded the page limit for both exercises.
+
+
+\tableofcontents
+\newpage
+
+
+# Exercise 9: Credit Card Defaults 
+## Numerical description
+```{r}
+dat <- read.csv2("./Ausfall.csv", header = TRUE)
+dat$Ausfall <- factor(dat$Ausfall)   
+dat$Student <- factor(dat$Student) 
+summary(dat) 
+```
+From the summary statistic above we can see that there are $10,000$ observations in total. For the numerical variable `Balance` we see that the average outstanding credit card balance after monthly payments range from $0$ to $2,653.3$ with a mean of $835.4$. For the numerical variable `Einkommen` a annual customer income range from $772$ to $73,554$ with a mean of $33,517$ is reported.
+```{r}
+tab_default <- table(dat$Ausfall)
+prop_default <- prop.table(tab_default)
+tab_student <- table(dat$Student)
+prop_student <- prop.table(tab_student)
+cbind("Count Default" = tab_default,"Proportion Default" = prop_default, 
+      "Count Student" = tab_student, "Proportion Student" = prop_student)
+```
+The tables for the variable `Ausfall` tell us that in the whole data set there are $333$ reported defaults in total which equals a share of $3.3$%. The other $97.3$% did not default.
+The tables for the variable `Student` tell us that in the whole data set that of the $10,000$ customer there are $2,944$ customers who are students. Or in other words $29.4$% of the reported observations are attributed to students.
+
+
+## Graphical description
+*Default by Student*
+```{r out.width='55%', fig.align = "center"}
+table(dat$Student, dat$Ausfall)
+barplot(table(dat$Student, dat$Ausfall),beside = TRUE,legend.text = c("Default", "No default"),
+  args.legend = list(title = "Default", x = "topleft"),
+  main = "Payment Defaults by Student Status",
+  xlab = "Student Status",ylab = "Number of Customers")
+```
+From the histogram above one can see that there is generally very little data for students in the data set. Furthermore, for non students most credit cards liabilities did not default. For students however the difference between non-defaults and defaults is considerably lower.
+
+*Balance by Default*
+```{r out.width='55%', fig.align = "center"}
+boxplot(Balance ~ Ausfall, data = dat,main = "Balance by Default", ylab = "Balance")
+```
+The box plot above hints at the fact that defaults tend to come from people with higher outstanding payments as the median is considerably higher. Even the outliers in terms of lower balance for defaulted liabilities seem to be above or on the level of the median balance for non defaults.
+
+*Income by Default*
+```{r out.width='55%', fig.align = "center"}
+boxplot(Einkommen ~ Ausfall, data = dat,main = "Income by Default", ylab = "Income")
+```
+This box plot hints at the fact that income seems to have rather little influence the default of liabilities.
+
+## Logistic Regression Model
+
+```{r}
+m1 <- glm(Ausfall ~ .,data = dat,family = binomial)
+summary(m1)
+```
+
+The coefficient for `income` is very small (\(−3.03 \cdot 10^{-6}\)) and statistically insignificant (\(p-value = 0.71\)).
+Therefore, based on this model, `income` is not associated with the probability of default.
+In other words, `income` does not help explain whether a customer will default, after controlling for `balance` and `student status`.
+
+## Student vs Non-Student
+```{r}
+dat$Ausfall <- relevel(as.factor(dat$Ausfall), ref = "Nein")
+dat$Student <- relevel(dat$Student, ref = "Nein")
+mod <- glm(Ausfall ~ ., data = dat, family = binomial)
+beta_student <- coef(mod)["StudentJa"]
+OR_student <- exp(beta_student)
+cbind("Beta Student" = beta_student, "OR Student" = OR_student)
+```
+The coefficient of `StudentJa` is approximately $0.647$ which corresponds to an Odds-Ratio of approx. $0.52$. That means the odds for students to default are roughly $48$% lower than for non students.
+```{r}
+confint_99 <- confint(profile(mod), parm = "StudentJa", level = 0.99)
+OR_CI_99 <- exp(confint_99)
+OR_CI_99
+```
+
+
+With the $99$% confidence interval of [$0.29$, $0.97$] we can conclude that with $99$% confidence students have odds of default between $3$% to $72$% lower than non students.
+Because the entire interval is above 1, the result is statistically significant even at the 1% level.
+
+
+# Exercise 10: Mandatory Membership in the WKO 
+## Numerical data description
+```{r}
+wko <- read.csv("wko.csv")
+wko$gruppe <- factor(wko$gruppe)
+summary(wko)
+by(wko$akzeptanz, wko$gruppe, summary)
+aggregate(akzeptanz ~ gruppe, data = wko, 
+          function(x) c(mean = round(mean(x), 2), sd = round(sd(x), 2)))
+```
+From the summary statistc, we can see that the values for `akzeptanz` range from $21$ to $32$ with a mean of $25.58$. The categorical variable `gruppe` has to categories that make up for half of the datset each. Furthermore, we calculated summary statistics for each of these two groups showing that the range for the first group is from $21$ to $32$ and for the second group from $19$ to $29$. While the medians are almost identical with $24.5$ and $24$ the means differ slightly more with $25.58$ and $23.92$. Additionally we have calulated the standard deviances which appear to be similar but not identical with $3.45$ and $3.42$.
+
+## Graphical data description
+```{r out.width='60%', fig.align = "center"}
+boxplot(akzeptanz ~ gruppe, data = wko,
+        main = "Attitude by Group",
+        xlab = "Group",
+        ylab = "Attitude level",
+        col = c("lightblue", "lightgreen"))
+```
+This boxplot tells exactly the same story as the summary statistic calculated but in a more graphical way.
+
+
+## Testing differences in `attitude`
+For the statistical analysis, we choose the **Welch Two Sample t-test**. The dataset consists of one continuous variable (`akzeptanz`) and one categorical variable (`gruppe`) with two independent groups. While we treat the data as normally distributed, we cannot assume that the population variances of the two groups are equal, as, although we calculated the sample standard deviations in a), we do not know the true population values. The Welch t-test is robust against unequal variances and is therefore the appropriate choice.
+
+
+## Testing hypotheses
+
+\[
+H_0: \mu_1 = \mu_2
+\]
+\[
+H_A: \mu_1 \neq \mu_2
+\]
+
+```{r}
+test_result <- t.test(akzeptanz ~ gruppe, data = wko)
+print(test_result)
+```
+*Interpretation:* The Welch two-sample t-test shows a p-value of **0.2475**. Since this p-value is greater than the significance level of $\alpha = 0.05$, we do not reject the null hypothesis \(H_0\). Based on this sample, there is no statistically significant evidence to suggest that the true mean attitude levels differ between the two groups. Therefore, we cannot conclude that there are differences in positive attitude towards mandatory membership between Group 1 and Group 2.
+
+# Exercise 11: Doctor Visits and Health Status
+## Doctor visity by access group
+
+```{r out.width='60%', fig.align = "center"}
+load("doctor.rda") 
+summary(doctor)
+doctor$access <- as.factor(doctor$access)
+
+boxplot(doctor ~ access, data = doctor, 
+        main = "Doctor Visits by Access Level",
+        xlab = "Access Level",
+        ylab = "Number of Doctor Visits")
+```
+
+*Decision process:* The boxplots reveal heavy right-skewness and significant outliers, clearly violating the normality assumption required for one-way ANOVA. Since these distributional assumption is not satisfied, we must use a robust non-parametric alternative. Therefore, we select the Kruskal-Wallis test, which is rank-based and does not require the data to be normally distributed.
+
+```{r}
+kruskal.test(doctor ~ access, data = doctor)
+```
+
+*Interpretation:* There is statistically significant evidence to conclude that the distribution of doctor visits is **not** the same across all access groups. This means that the level of access to health care services (A, B, C, or D) has a significant effect on the number of doctor visits.
+
+## Model fitting
+```{r}
+model_a <- lm(health ~ doctor + children, data = doctor)
+model_b <- lm(health ~ doctor + access + children, data = doctor)
+model_c <- lm(health ~ doctor * access + children, data = doctor)
+```
+```{r}
+anova(model_a, model_b)
+anova(model_b, model_c)
+anova(model_a, model_c)
+```
+
+*Decision:* 
+First, comparing Model A against Model B yields a non-significant p-value of $0.346$, indicating that `access` does not significantly shift the baseline health level (intercept). However, comparing Model B against Model C yields a highly significant p-value of $0.006$. This confirms that `access` significantly alters the slope. In other words, the effectiveness of doctor visits on health depends on the level of access, making the interaction model (Model C) the necessary choice.
+
+*Interpretation:*
+```{r}
+summary(model_c)
+```
+
+* **Intercept (1.805):** The estimated health status for a person in the baseline group (Access A) with zero doctor visits and zero children.
+* **doctor (0.123):** For those with Access A, each additional doctor visit significantly improves health status by approximately 0.123 units ($p = 0.013$).
+* **children (0.030):** The number of children is not a significant predictor of health in this model ($p = 0.476$).
+* **Interaction Effects:** The significant ANOVA result implies that the relationship between doctor visits and health differs by access group. For example, the interaction coefficient for `doctor:accessC` (+0.120) suggests that doctor visits may be more beneficial for individuals with Access C compared to the baseline group (Access A).
+
+## Model Diagnostics
+```{r out.width='60%', fig.align = "center"}
+par(mfrow = c(1, 2))
+plot(model_c, which = 1:2, id.n = 0)
+```
+*Violation of assumptions:* Based on the plots, the assumption of homoscedasticity (constant variance) is violated. In the "Residuals vs Fitted" plot, the residuals spread wider as the fitted values increase, showing that the variance is not constant. The Q-Q plot also indicates that the residuals deviate from a normal distribution at the tails.
+To address this, we estimate a new model using a log-transformation of the dependent variable to stabilize the variance and improve normality.
+
+```{r}
+model_log <- lm(log(health) ~ doctor * access + children, data = doctor)
+summary(model_log)
+```
+
+```{r out.width='60%', fig.align = "center"}
+par(mfrow = c(1, 2))
+plot(model_log, which = 1:2, id.n = 0)
+```
+
+*Interpretation:*
+
+Based on the Adjusted R-squared the model explains only approximately 6.6% of the variance in the logarithmic `health` scores. While the overall model is statistically significant (F-statistic = 5.247, $p < 0.001$), the low Adjusted R-squared suggests that a large portion of the variability in `health` remains unexplained by the variables `doctor`, `access`, and `children`.
+
+Regarding significance, none of the individual predictors (`doctor`, `access`, `children`) or their interaction terms (`doctor:access`) reached statistical significance at the standard 5% level ($p > 0.05$). The interaction term `doctor:accessC` showed a weak trend ($p = 0.083$) but is not statistically significant.
+
+The coefficients are interpreted as percentage changes because the dependent variable `health` was log-transformed.
+
+* The coefficient for `doctor` is 0.038, which would suggest that a one-unit increase in `doctor` visits is associated with an approximate 3.8% increase in the `health` score. However, this effect is not statistically significant ($p = 0.11$).
+* Similarly, the coefficient for `children` is 0.018, suggesting a 1.8% increase in `health` for each additional child, but this is also not significant ($p = 0.43$).
