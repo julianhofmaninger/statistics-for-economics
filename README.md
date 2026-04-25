@@ -4,9 +4,7 @@ This repository contains four case studies completed as part of the course **Sta
 The course covers applied statistical analysis using R, with emphasis on real-world economic and social datasets. Each case study combines data wrangling, exploratory analysis, statistical modelling, and written interpretation of results.
 
 **Authors:** Paula Gillessen, Julian Sandalek and Julian Hofmaninger
-
 **Instructor:** Tomas Masak, Ph.D. 
-
 **Term:** Winter Term 2025/2026  
 
 ## Repository Structure
