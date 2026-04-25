@@ -3,8 +3,8 @@
 This repository contains four case studies completed as part of the course **Statistics for Economics with R** at the Vienna University of Economics and Business (WU Vienna), academic year 2025/26.
 The course covers applied statistical analysis using R, with emphasis on real-world economic and social datasets. Each case study combines data wrangling, exploratory analysis, statistical modelling, and written interpretation of results.
 
-**Authors:** Paula Gillessen, Julian Sandalek and Julian Hofmaninger
-**Instructor:** Tomas Masak, Ph.D. 
+**Authors:** Paula Gillessen, Julian Sandalek and Julian Hofmaninger  
+**Instructor:** Tomas Masak, Ph.D.  
 **Term:** Winter Term 2025/2026  
 
 ## Repository Structure
