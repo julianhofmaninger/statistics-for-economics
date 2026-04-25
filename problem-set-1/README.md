@@ -34,7 +34,7 @@ Dataset: `state.x77` — 8 numeric socioeconomic variables (Population, Income, 
 
 | File | Description |
 |---|---|
-| `hw1.R` | Collection of used R code |
-| `hw1.Rmd` | R Markdown source |
-| `hw1.pdf` | Compiled output with results and interpretation |
+| `HW1.R` | Collection of used R code |
+| `HW1.Rmd` | R Markdown source |
+| `HW1.pdf` | Compiled output with results and interpretation |
 
